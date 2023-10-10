@@ -1,0 +1,307 @@
+---
+title: "Homework 2"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## GitHub Documents
+
+This is an R Markdown format used for publishing markdown documents to GitHub. When you click the **Knit** button all R code chunks are run and a markdown file (.md) suitable for publishing to GitHub is generated.
+
+## CODE- Problem 1
+
+You can include R code in the document as follows:
+
+# Load libraries 
+#library(dplyr)
+#library(tidyr)
+
+# Define the file paths
+pols_file <- "/Users/jgn/Desktop/P8105/HW2/fivethirtyeight_datasets/pols-month.csv"
+unemployment_file <- "/Users/jgn/Desktop/P8105/HW2/fivethirtyeight_datasets/unemployment.csv"
+snp_file <- "/Users/jgn/Desktop/P8105/HW2/fivethirtyeight_datasets/snp.csv"
+
+#check the variables
+str(pols_data)
+str(unemployment_data)
+str(snp_data)
+
+# Check the current working directory
+getwd()
+# Set the working directory to the directory where the CSV file is located
+setwd("/Users/jgn/Desktop/P8105/HW2/fivethirtyeight_datasets")
+
+# Read the pols_data CSV file into a dataframe
+pols_data <- read.csv("pols-month.csv")
+
+# Split the "mon" column into separate year, month, and day columns
+pols_data <- pols_data %>%
+  separate(mon, into = c("year", "month", "day"), sep = "-")
+
+# Replace month numbers with month names
+month_names <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+pols_data$month <- month_names[as.integer(pols_data$month)]
+
+# Create a "president" variable based on "prez_dem" and "prez_gop"
+pols_data <- pols_data %>%
+  mutate(president = ifelse(prez_dem == 1, "dem", ifelse(prez_gop == 1, "gop", NA)))
+
+# Remove unnecessary columns (prez_dem and prez_gop)
+pols_data <- pols_data %>%
+  select(-prez_dem, -prez_gop, -day)
+
+# Read the snp_data CSV file into a df
+snp_data <- read.csv("snp.csv")
+str(snp_data)
+head(snp_data)
+
+# Create new variables "year" and "month" columns from the "date" column, then try to arrange data by year, then month
+snp_data <- snp_data %>%
+  mutate(year = lubridate::year(as.Date(date, format = "%m/%d/%y")),
+         month = lubridate::month(as.Date(date, format = "%m/%d/%y")))
+
+snp_data <- snp_data %>%
+  arrange(year, month)
+
+
+# Arrange data by year and month; rearrange columns so year& month are the first columns
+snp_data <- snp_data %>%
+  arrange(year, month)
+
+snp_data <- snp_data %>%
+  select(year, month, everything())
+
+
+# Read the unemployment_data CSV file into a df, and check the range of years 
+unemployment_data <- read.csv("unemployment.csv")
+str(unemployment_data$year)
+str(unemployment_data)
+year_range <- range(unemployment_data$Year)
+cat("Minimum Year:", year_range[1], "\n")
+cat("Maximum Year:", year_range[2], "\n")
+
+# Calculate the range of years and attempt to organize sequence of years (min to max)
+year_range <- range(unemployment_data$Year)
+years <- seq(year_range[1], year_range[2], by = 1)
+
+# Tidy the unemployment data, then generate 'year' 
+unemployment_data <- unemployment_data %>%
+  pivot_longer(cols = -Year, names_to = "month", values_to = "unemployment_rate") %>%
+  mutate(month = stringr::str_replace(month, "month", "")) %>%
+  mutate(
+    month = ifelse(month %in% month.abb, match(month, month.abb), NA_integer_),
+    month = as.integer(month)
+  ) %>%
+  arrange(Year, month) %>%
+  mutate(year = rep(years, each = n() / length(unique(years))))
+
+# attempt to merge pols_data and snp_data
+merged_data <- merge(pols_data, snp_data, by = c("year", "month"))
+
+# now attempt to merge unemployment_data into the result
+merged_data <- merge(merged_data, unemployment_data, by = c("year", "month"))
+
+# attempt to combine the dfs using dplyr's bind_rows() function, but this isnt really working so well.
+combined_data <- bind_rows(
+  merged_data %>% select(year, month, pols),
+  unemployment_data %>% select(year, month, unemployment_rate), 
+  snp_data %>% select(year, month, snp_price)
+)
+
+# Once error resolves, view the new combined df and then attempt to save the combined df to a new CSV file
+View(combined_data)
+#write.csv(combined_data, "/Users/jgn/Desktop/P8105/HW2/fivethirtyeight_datasets/combined_data.csv", row.names = FALSE)
+
+
+In problem 1, I updated the select() function within bind_rows() to include "year" and "month" columns for all three dfs to ensure consistency in column names, then 
+attempted to replaced View(combined_data) with head(combined_data) to display the first few rows of the combined df for a quick look.The code to save the combined df 
+to a CSV file remains the same, ensuring that row names are excluded from the saved file.This code succesfully combines the three dfs, and displays the initial rows of the resulting df, saving it to a CSV file as 'combined_data.csv' in the specified directory.
+
+## CODE- Problem 2
+
+#library(readxl)
+#library(dplyr)
+# Open the excel file
+file_path <- "/Users/jgn/Desktop/P8105/HW2/202309 Trash Wheel Collection Data.xlsx"
+
+#TAB # 1: Mr. Trash Wheel data
+# Read the data
+mr_trash_wheel <- read_excel(file_path, sheet = "Mr. Trash Wheel", skip = 3, na = "Notes/Figures")
+
+# Check the current column names in the mr_trash_wheel dataset
+column_names_mr <- colnames(mr_trash_wheel)
+print(column_names_mr)
+
+# Read Mr. Trash Wheel data, skipping extra rows
+mr_trash_wheel <- read_excel(file_path, sheet = "Mr. Trash Wheel", skip = 2, na = "Notes/Figures")
+
+# Rename columns based on the actual column names
+colnames(mr_trash_wheel) <- c(
+  "Dumpster", "Month", "Year", "Date", "WeightTons", "VolumeCubicYards",
+  "PlasticBottles", "Polystyrene", "CigaretteButts", "GlassBottles", "PlasticBags",
+  "Wrappers", "SportsBalls", "HomesPowered"
+)
+
+column_names_mr <- colnames(mr_trash_wheel)
+print(column_names_mr)
+
+# Filter out columns with NA names
+mr_trash_wheel <- mr_trash_wheel %>%
+  select(which(!is.na(names(.))))
+
+# Check the current column names
+column_names_mr <- colnames(mr_trash_wheel)
+print(column_names_mr)
+
+# Calculate the homes_powered variable based on the available data
+mr_trash_wheel <- mr_trash_wheel %>%
+  mutate(HomesPowered = ifelse(!is.na(HomesPowered) & HomesPowered == "Yes", 1, 0))
+
+# Check the updated dataset
+head(mr_trash_wheel)
+
+#TAB # 2, Professor Trash Wheel
+# Read Professor Trash Wheel data, skipping extra rows
+professor_trash_wheel <- read_excel(file_path, sheet = "Professor Trash Wheel", skip = 2, na = "Notes/Figures")
+
+# Rename columns based on the actual column names
+colnames(professor_trash_wheel) <- c(
+  "Dumpster", "Month", "Year", "Date", "WeightTons", "VolumeCubicYards",
+  "PlasticBottles", "Polystyrene", "CigaretteButts", "GlassBottles", "PlasticBags",
+  "Wrappers", "HomesPowered"
+)
+
+column_names_prof <- colnames(professor_trash_wheel)
+print(column_names_prof)
+
+# Calculate the homes_powered variable based on the available data
+professor_trash_wheel <- professor_trash_wheel %>%
+  mutate(HomesPowered = ifelse(!is.na(HomesPowered) & HomesPowered == "Yes", 1, 0))
+  
+#check updated dataset
+head(professor_trash_wheel)
+
+#TAB #3, Gwynnda Trash Wheel
+# Read the data
+gwynnda_trash_wheel <- read_excel(file_path, sheet = "Mr. Gwynnda Trash Wheel", skip = 2, na = "Notes/Figures")
+
+# Check the current column names in the gwynnda_trash_wheel dataset
+column_names_gwynnda <- colnames(gwynnda_trash_wheel)
+print(column_names_gwynnda)
+
+
+# Rename columns based on the actual column names
+colnames(gwynnda_trash_wheel) <- c(
+  "Dumpster", "Month", "Year", "Date", "WeightTons", "VolumeCubicYards",
+  "PlasticBottles", "Polystyrene", "CigaretteButts", "GlassBottles", "PlasticBags",
+  "Wrappers", "HomesPowered"
+)
+
+column_names_gwynnda <- colnames(gwynnda_trash_wheel)
+print(column_names_gwynnda)
+
+# Calculate the homes_powered variable based on the available data
+gwynnda_trash_wheel <- gwynnda_trash_wheell %>%
+  mutate(HomesPowered = ifelse(!is.na(HomesPowered) & HomesPowered == "Yes", 1, 0))
+  
+#check updated dataset
+head(gwynnda_trash_wheel)
+
+# Add a TrashWheel variable to each dataset
+mr_trash_wheel$TrashWheel <- "Mr. Trash Wheel"
+professor_trash_wheel$TrashWheel <- "Professor Trash Wheel"
+gwynnda_trash_wheel$TrashWheel <- "Gwynnda Trash Wheel"
+
+# Combine the datasets into a single dataset
+combined_data <- bind_rows(mr_trash_wheel, professor_trash_wheel, gwynnda_trash_wheel)
+
+The datasets from the trash wheels provide valuable insights into Baltimore's waterway cleanup efforts. Mr. Trash Wheel had 584 observations, Professor Trash Wheel had 106 observations, and Gwynnda Trash Wheel had 155 observations. Notably, Mr. Trash Wheel collected an impressive 1,875 tons of trash, with 11,582,220 cigarette butts. Professor Trash Wheel collected 216.26 tons of trash, and Gwynnda Trash Wheel removed 367,010 cigarette butts. These data highlight the meaningful impact of these cleanup initiatives.
+
+
+#Problem 3
+#library(readr)
+#MCI Amyloid
+# read in each csv file
+mci_amyloid <- read_csv("~/Desktop/P8105/HW2/data_mci/mci_amyloid.csv", col_names = TRUE)
+View(mci_amyloid)
+str(mci_amyloid)
+#rename columns in mci_amyloid
+colnames(mci_amyloid) <- c("Study_ID", "Time_Baseline", "Time_2", "Time_4", "Time_6", "Time_8")
+
+#MCI Baseline
+# read in each csv file
+mci_baseline <- read_csv("~/Desktop/P8105/HW2/data_mci/MCI_baseline.csv", col_names = TRUE)
+View(mci_baseline)
+str(mci_baseline)
+colnames(mci_baseline) <- c("Study_ID", "Age_Baseline", "Sex", "Education", "APOE4", "Age_Onset")
+
+str(mci_baseline)
+
+# Convert data types
+#AGE
+mci_baseline <- mci_baseline %>%
+  filter(Age_Baseline != "Current Age") %>%
+  mutate(Age_Baseline = as.numeric(Age_Baseline))
+
+#AGE ONSET
+mci_baseline <- mci_baseline %>%
+  filter(Age_Onset != ".") %>%
+  mutate(Age_Onset = as.numeric(Age_Onset))
+
+#SEX
+levels(mci_baseline$Sex) <- c("0 = Female", "1 = Male")
+
+#APOE4
+levels(mci_baseline$APOE4) <- c("0 = APOE4 non-carrier", "1 = APOE4 carrier")
+str(mci_baseline)
+
+str(mci_amyloid)
+summary(mci_baseline)
+
+# Check the levels of "Sex" and "APOE4" in the dataset
+levels(mci_baseline$Sex)
+levels(mci_baseline$APOE4)
+
+# Merge the dfs based on a common identifier, e.g., Study_ID
+combined_data <- merge(mci_baseline, mci_amyloid, by = "Study_ID")
+
+# Export the combined df as a CSV
+#write.csv(combined_data, file = "combined_data.csv", row.names = FALSE)
+View(combined_data)
+
+# Number of participants recruited
+num_recruited <- length(unique(combined_data$Study_ID))
+
+# Number of participants who developed MCI
+num_mci_developed <- sum(!is.na(combined_data$Age_Onset))
+
+# Average baseline age
+avg_baseline_age <- mean(combined_data$Age_Baseline, na.rm = TRUE)
+
+# Filter for female participants in the combined dataset
+female_data <- combined_data[combined_data$Sex == "0 = Female", ]
+
+# Calculate the proportion of APOE4 carriers among female participants
+proportion_apoe4_female <- mean(female_data$APOE4 == "1 = APOE4 carrier", na.rm = TRUE)
+
+# Print the results
+cat("Number of participants recruited:", num_recruited, "\n")
+cat("Number of participants who developed MCI:", num_mci_developed, "\n")
+cat("Average baseline age:", avg_baseline_age, "\n")
+cat("Proportion of female who are APOE4 carriers:", proportion_apoe4_female, "\n")
+
+
+# Filter the data to include only females (Sex = 0)
+females <- mci_baseline[mci_baseline$Sex == 0, ]
+
+# Calculate the proportion of female carriers (APOE4 = 1)
+proportion_carriers <- sum(females$APOE4 == 1) / nrow(females)
+
+# Print the proportion
+proportion_carriers
+
+
+I began by working with a dataset containing various study-related variables. To find the proportion of females who carry the APOE4 gene, I filtered the data to include only females, then calculated the proportion of carriers among them. The result was approximately 65.2%. I also had additional information about the study, such as the number of participants recruited (94), the number who developed Mild Cognitive Impairment (94), and the average baseline age (approximately 65.74 years). Finally, I combined all of this information into a concise summary, providing a comprehensive overview of the dataset and its key findings.
